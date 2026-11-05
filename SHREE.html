@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>shree decorators</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&family=Cormorant+Garamond:ital,wght@1,300&display=swap" rel="stylesheet"/>
+  <style>
+    /* ─── DESIGN TOKENS ─── */
+    :root {
+      --pink:      #F7C5D0;
+      --pink-deep: #EDA0B3;
+      --lavender:  #D9C9F0;
+      --lav-deep:  #B8A4DC;
+      --cream:     #FDF6F0;
+      --cream-alt: #FAF0E6;
+      --blush:     #F9E4EC;
+      --text:      #2E1F2F;
+      --text-mid:  #6B4F6E;
+      --text-soft: #A88FAB;
+      --white:     #FFFFFF;
+      --shadow:    rgba(180,140,190,0.18);
+      --radius:    18px;
+      --font-head: 'Playfair Display', serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-ital: 'Cormorant Garamond', serif;
+    }
+
+    /* ─── RESET & BASE ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      background: var(--cream);
+      color: var(--text);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ─── CUSTOM CURSOR ─── */
+    #cursor {
+      width: 12px; height: 12px;
+      background: var(--pink-deep);
+      border-radius: 50%;
+      position: fixed; top: 0; left: 0;
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 0.15s ease, background 0.3s;
+      transform: translate(-50%, -50%);
+    }
+    #cursor-trail {
+      width: 30px; height: 30px;
+      border: 1.5px solid var(--lav-deep);
+      border-radius: 50%;
+      position: fixed; top: 0; left: 0;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate(-50%, -50%);
+      transition: left 0.12s ease, top 0.12s ease, transform 0.3s;
+    }
+    a:hover ~ #cursor, button:hover ~ #cursor { transform: translate(-50%, -50%) scale(2); }
+
+    /* ─── SCROLLBAR ─── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--cream); }
+    ::-webkit-scrollbar-thumb { background: var(--lavender); border-radius: 10px; }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed; top: 0; width: 100%; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 6vw;
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+    nav.scrolled {
+      background: rgba(253,246,240,0.92);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 2px 20px var(--shadow);
+    }
+    .nav-logo {
+      font-family: var(--font-head);
+      font-size: 1.5rem;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .nav-logo span { color: var(--pink-deep); }
+    .nav-links { display: flex; gap: 36px; list-style: none; }
+    .nav-links a {
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-mid);
+      letter-spacing: 0.03em;
+      transition: color 0.2s;
+      position: relative;
+    }
+    .nav-links a::after {
+      content: ''; position: absolute; bottom: -3px; left: 0;
+      width: 0; height: 1.5px;
+      background: var(--pink-deep);
+      transition: width 0.3s ease;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover::after { width: 100%; }
+    .nav-cta {
+      background: var(--text);
+      color: var(--cream) !important;
+      padding: 9px 22px;
+      border-radius: 50px;
+      transition: background 0.3s, transform 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--text-mid) !important; transform: translateY(-1px); }
+    .nav-cta::after { display: none !important; }
+
+    /* ─── SECTION SHARED ─── */
+    section { padding: 100px 8vw; position: relative; }
+    .tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--lav-deep);
+      background: rgba(217,201,240,0.3);
+      padding: 5px 14px;
+      border-radius: 50px;
+      margin-bottom: 18px;
+    }
+    h1, h2, h3 { font-family: var(--font-head); line-height: 1.2; }
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ─── FLOATING BLOBS ─── */
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.45;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ════════════════════════════════
+       §1 HERO
+    ════════════════════════════════ */
+    #hero {
+      min-height: 100vh;
+      display: flex; align-items: center;
+      padding-top: 120px;
+      overflow: hidden;
+      background: var(--cream);
+    }
+    #hero .blob-1 { width: 500px; height: 500px; background: var(--pink); top: -80px; right: -100px; }
+    #hero .blob-2 { width: 350px; height: 350px; background: var(--lavender); bottom: 50px; left: -80px; }
+    .hero-inner {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 60px; align-items: center; width: 100%;
+    }
+    .hero-left { }
+    .hero-eyebrow {
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      font-weight: 500;
+      margin-bottom: 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      display: inline-block; width: 28px; height: 1.5px;
+      background: var(--pink-deep);
+    }
+    .hero-title {
+      font-size: clamp(2.8rem, 5vw, 5rem);
+      color: var(--text);
+      margin-bottom: 24px;
+      font-weight: 700;
+    }
+    .hero-title em {
+      font-style: italic;
+      color: var(--lav-deep);
+      font-family: var(--font-ital);
+      font-size: 1.1em;
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--text-mid);
+      line-height: 1.7;
+      max-width: 460px;
+      margin-bottom: 40px;
+      font-weight: 300;
+    }
+    .hero-btns { display: flex; gap: 16px; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--text);
+      color: var(--cream);
+      border: none; cursor: pointer;
+      padding: 14px 32px;
+      border-radius: 50px;
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(46,31,47,0.22);
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1.5px solid var(--text);
+      cursor: pointer;
+      padding: 13px 32px;
+      border-radius: 50px;
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      transition: background 0.25s, color 0.25s, transform 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-outline:hover {
+      background: var(--text);
+      color: var(--cream);
+      transform: translateY(-2px);
+    }
+    .hero-right { display: flex; justify-content: center; align-items: center; }
+    .hero-card-wrap {
+      position: relative;
+      width: 380px; height: 460px;
+    }
+    .hero-card {
+      width: 100%; height: 100%;
+      border-radius: 28px;
+      background: linear-gradient(145deg, var(--blush) 0%, var(--lavender) 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+      box-shadow: 0 20px 60px var(--shadow);
+    }
+    .hero-card-deco {
+      position: absolute; top: 30px; right: 30px;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+    }
+    .hero-card-deco2 {
+      position: absolute; bottom: -30px; left: -20px;
+      width: 180px; height: 180px;
+      border-radius: 50%;
+      background: rgba(237,160,179,0.22);
+    }
+    .hero-big-text {
+      font-family: var(--font-head);
+      font-size: 4rem;
+      font-weight: 700;
+      color: var(--white);
+      text-align: center;
+      line-height: 1.1;
+      position: relative; z-index: 1;
+      text-shadow: 0 4px 20px rgba(180,140,190,0.3);
+    }
+    .hero-big-text span {
+      display: block;
+      font-style: italic;
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: rgba(255,255,255,0.8);
+      font-family: var(--font-ital);
+      margin-top: 8px;
+    }
+    .floating-badge {
+      position: absolute;
+      background: var(--white);
+      border-radius: 14px;
+      padding: 12px 18px;
+      box-shadow: 0 8px 24px var(--shadow);
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text);
+      display: flex; align-items: center; gap: 8px;
+      animation: float 3s ease-in-out infinite;
+    }
+    .badge-1 { bottom: -18px; left: -30px; animation-delay: 0s; }
+    .badge-2 { top: -18px; right: -24px; animation-delay: 1.5s; }
+    .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .badge-dot.green { background: #7EC8A4; }
+    .badge-dot.pink  { background: var(--pink-deep); }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+    .hero-stats {
+      margin-top: 50px;
+      display: flex; gap: 36px;
+    }
+    .stat { }
+    .stat-num {
+      font-family: var(--font-head);
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      font-weight: 400;
+      margin-top: 4px;
+    }
+
+    /* ════════════════════════════════
+       §2 ABOUT
+    ════════════════════════════════ */
+    #about {
+      background: var(--blush);
+      overflow: hidden;
+    }
+    #about .blob-a { width: 400px; height: 400px; background: var(--lavender); top: -60px; right: -60px; }
+    .about-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 80px; align-items: center;
+      position: relative; z-index: 1;
+    }
+    .about-img-wrap { position: relative; }
+    .about-img-box {
+      width: 100%; aspect-ratio: 4/5;
+      border-radius: 28px;
+      background: linear-gradient(160deg, var(--pink) 0%, var(--lavender) 55%, var(--cream) 100%);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      box-shadow: 0 16px 50px var(--shadow);
+    }
+    .about-img-inner {
+      font-family: var(--font-head);
+      font-size: 6rem;
+      opacity: 0.18;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -4px;
+    }
+    .about-accent {
+      position: absolute;
+      bottom: -24px; right: -24px;
+      width: 130px; height: 130px;
+      border-radius: 50%;
+      background: var(--pink-deep);
+      opacity: 0.25;
+    }
+    .about-accent2 {
+      position: absolute;
+      top: -24px; left: -24px;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: var(--lav-deep);
+      opacity: 0.2;
+    }
+    .about-text h2 {
+      font-size: clamp(2rem, 3.5vw, 3rem);
+      margin-bottom: 22px;
+      color: var(--text);
+    }
+    .about-text h2 em {
+      font-style: italic;
+      color: var(--pink-deep);
+      font-family: var(--font-ital);
+    }
+    .about-text p {
+      font-size: 0.96rem;
+      color: var(--text-mid);
+      line-height: 1.8;
+      margin-bottom: 18px;
+      font-weight: 300;
+    }
+    .about-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .pill {
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(180,140,190,0.25);
+      border-radius: 50px;
+      padding: 7px 18px;
+      font-size: 0.8rem;
+      color: var(--text-mid);
+      font-weight: 500;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ════════════════════════════════
+       §3 WHAT WE DO
+    ════════════════════════════════ */
+    #services {
+      background: var(--cream);
+      overflow: hidden;
+    }
+    #services .blob-s { width: 500px; height: 500px; background: var(--pink); bottom: -100px; left: -100px; }
+    .services-header { text-align: center; margin-bottom: 64px; position: relative; z-index: 1; }
+    .services-header h2 { font-size: clamp(2rem, 3.5vw, 3.2rem); }
+    .services-header p {
+      font-size: 0.96rem;
+      color: var(--text-mid);
+      max-width: 520px; margin: 16px auto 0;
+      line-height: 1.75; font-weight: 300;
+    }
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      position: relative; z-index: 1;
+    }
+    .service-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 36px 30px;
+      border: 1px solid rgba(180,140,190,0.12);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      position: relative; overflow: hidden;
+    }
+    .service-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--pink-deep), var(--lav-deep));
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.4s ease;
+    }
+    .service-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px var(--shadow); }
+    .service-card:hover::before { transform: scaleX(1); }
+    .service-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 20px;
+    }
+    .service-card h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+    .service-card p {
+      font-size: 0.86rem;
+      color: var(--text-soft);
+      line-height: 1.7;
+      font-weight: 300;
+    }
+    .service-tag {
+      display: inline-block;
+      margin-top: 16px;
+      font-size: 0.73rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--lav-deep);
+      font-weight: 600;
+    }
+    /* custom design card highlight */
+    .service-card.featured {
+      background: linear-gradient(145deg, var(--blush), var(--lavender));
+      border: none;
+    }
+    .service-card.featured h3 { color: var(--text); }
+    .service-card.featured p { color: var(--text-mid); }
+    .service-card.featured .service-tag { color: var(--text-mid); }
+
+    /* ════════════════════════════════
+       §4 WHY CHOOSE US
+    ════════════════════════════════ */
+    #why {
+      background: var(--cream-alt);
+      overflow: hidden;
+    }
+    #why .blob-w { width: 420px; height: 420px; background: var(--lavender); top: -60px; right: -60px; }
+    .why-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 80px; align-items: center;
+      position: relative; z-index: 1;
+    }
+    .why-left h2 { font-size: clamp(2rem, 3.5vw, 3rem); margin-bottom: 22px; }
+    .why-left p {
+      font-size: 0.96rem; color: var(--text-mid);
+      line-height: 1.8; margin-bottom: 30px; font-weight: 300;
+    }
+    .why-reasons { display: flex; flex-direction: column; gap: 20px; }
+    .reason {
+      display: flex; gap: 18px; align-items: flex-start;
+    }
+    .reason-icon {
+      flex-shrink: 0;
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 14px var(--shadow);
+    }
+    .reason-text h4 { font-size: 0.96rem; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .reason-text p { font-size: 0.84rem; color: var(--text-soft); line-height: 1.6; font-weight: 300; }
+    .why-right {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .metric-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      box-shadow: 0 4px 20px var(--shadow);
+      transition: transform 0.2s;
+    }
+    .metric-card:hover { transform: translateY(-4px); }
+    .metric-card:nth-child(2) { margin-top: 24px; }
+    .metric-card:nth-child(4) { margin-top: 24px; }
+    .metric-num {
+      font-family: var(--font-head);
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .metric-num span { color: var(--pink-deep); }
+    .metric-label { font-size: 0.82rem; color: var(--text-soft); font-weight: 400; }
+
+    /* ════════════════════════════════
+       §5 CTA / CONTACT
+    ════════════════════════════════ */
+    #contact {
+      background: var(--blush);
+      overflow: hidden;
+    }
+    #contact .blob-c1 { width: 400px; height: 400px; background: var(--lavender); top: -80px; left: -80px; }
+    #contact .blob-c2 { width: 300px; height: 300px; background: var(--pink); bottom: -60px; right: -60px; }
+    .contact-inner {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 80px; align-items: flex-start;
+    }
+    .contact-left h2 { font-size: clamp(2rem, 3.5vw, 3rem); margin-bottom: 18px; }
+    .contact-left h2 em { font-style: italic; color: var(--lav-deep); font-family: var(--font-ital); }
+    .contact-left p {
+      font-size: 0.95rem; color: var(--text-mid);
+      line-height: 1.8; margin-bottom: 36px; font-weight: 300;
+    }
+    .contact-info { display: flex; flex-direction: column; gap: 16px; }
+    .contact-item {
+      display: flex; align-items: center; gap: 14px;
+      font-size: 0.88rem; color: var(--text-mid);
+    }
+    .contact-item-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem;
+      box-shadow: 0 2px 10px var(--shadow);
+      flex-shrink: 0;
+    }
+    .contact-form { display: flex; flex-direction: column; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group label { font-size: 0.78rem; font-weight: 500; color: var(--text-mid); letter-spacing: 0.04em; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      background: var(--white);
+      border: 1.5px solid rgba(180,140,190,0.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s;
+      width: 100%;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--lav-deep);
+      box-shadow: 0 0 0 3px rgba(184,164,220,0.18);
+    }
+    .form-group textarea { resize: vertical; min-height: 110px; }
+    .form-group select { appearance: none; }
+    #form-success {
+      display: none;
+      text-align: center;
+      padding: 28px;
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 20px var(--shadow);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    #form-success .tick { font-size: 2.5rem; display: block; margin-bottom: 12px; }
+
+    /* ════════════════════════════════
+       FOOTER
+    ════════════════════════════════ */
+    footer {
+      background: var(--text);
+      color: rgba(255,255,255,0.7);
+      padding: 70px 8vw 30px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 50px;
+      padding-bottom: 50px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .footer-brand .logo {
+      font-family: var(--font-head);
+      font-size: 1.5rem;
+      color: var(--white);
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: block;
+    }
+    .footer-brand .logo span { color: var(--pink); }
+    .footer-brand p {
+      font-size: 0.84rem;
+      line-height: 1.7;
+      max-width: 260px;
+      font-weight: 300;
+    }
+    .footer-col h4 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--white);
+      margin-bottom: 18px;
+    }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col ul li a {
+      text-decoration: none;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.55);
+      transition: color 0.2s;
+      font-weight: 300;
+    }
+    .footer-col ul li a:hover { color: var(--pink); }
+    .footer-col .contact-line {
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      display: flex; gap: 8px; align-items: center;
+      font-weight: 300;
+    }
+    .social-row { display: flex; gap: 12px; margin-top: 4px; }
+    .social-btn {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem;
+      text-decoration: none;
+      color: rgba(255,255,255,0.6);
+      transition: background 0.2s, color 0.2s, transform 0.2s;
+    }
+    .social-btn:hover {
+      background: var(--pink-deep);
+      color: var(--white);
+      transform: translateY(-2px);
+    }
+    .footer-bottom {
+      padding-top: 28px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.8rem; color: rgba(255,255,255,0.35);
+    }
+    .footer-bottom a { color: var(--pink); text-decoration: none; }
+
+    /* ─── MOBILE NAV TOGGLE ─── */
+    .nav-toggle { display: none; flex-direction: column; gap: 5px; cursor: pointer; }
+    .nav-toggle span { width: 24px; height: 2px; background: var(--text); border-radius: 2px; transition: 0.3s; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      body { cursor: auto; }
+      #cursor, #cursor-trail { display: none; }
+      .nav-links { display: none; flex-direction: column; position: absolute; top: 70px; left: 0; right: 0; background: rgba(253,246,240,0.97); padding: 20px 6vw; gap: 20px; box-shadow: 0 8px 24px var(--shadow); }
+      .nav-links.open { display: flex; }
+      .nav-toggle { display: flex; }
+      .hero-inner, .about-grid, .why-grid, .contact-inner { grid-template-columns: 1fr; gap: 40px; }
+      .hero-right { display: none; }
+      .hero-stats { gap: 24px; }
+      .services-grid { grid-template-columns: 1fr 1fr; }
+      .why-right { grid-template-columns: 1fr 1fr; }
+      .metric-card:nth-child(2), .metric-card:nth-child(4) { margin-top: 0; }
+      .footer-grid { grid-template-columns: 1fr 1fr; gap: 36px; }
+    }
+    @media (max-width: 560px) {
+      section { padding: 70px 6vw; }
+      .services-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Custom Cursor -->
+  <div id="cursor"></div>
+  <div id="cursor-trail"></div>
+
+  <!-- ─────────────────── NAV ─────────────────── -->
+  <nav id="navbar">
+    <a class="nav-logo" href="#hero">shree decorators<span>.</span></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#hero">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#services">Services</a></li>
+      <li><a href="#why">Why Us</a></li>
+      <li><a href="#contact" class="nav-cta">Book Now</a></li>
+    </ul>
+    <div class="nav-toggle" id="navToggle" onclick="toggleNav()">
+      <span></span><span></span><span></span>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════
+       §1 HERO
+  ═══════════════════════════════════════ -->
+  <section id="hero">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="hero-inner">
+      <div class="hero-left reveal">
+        <div class="hero-eyebrow">shree decorators</div>
+        <h1 class="hero-title">
+          Personalized decoration for your <br/><em>special movements</em><br/>at home.
+        </h1>
+        <p class="hero-sub">
+         we create beautiful setups  for small rituals and wedding functions at home,exactly as you imagine them.
+        </p>
+        <div class="hero-btns">
+          <a href="#contact" class="btn-primary">Start a Project →</a>
+          <a href="#services" class="btn-outline">Our Work</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <div class="stat-num">120+</div>
+            <div class="stat-label">Projects Done</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">98%</div>
+            <div class="stat-label">Happy Clients</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">5★</div>
+            <div class="stat-label">Average Rating</div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-right reveal" style="transition-delay:0.2s">
+        <div class="hero-card-wrap">
+          <div class="hero-card">
+            <div class="hero-card-deco"></div>
+            <div class="hero-card-deco2"></div>
+            <div class="hero-big-text">
+              from small rituals to big celebrations <span>we decorate happiness ✦</span>
+            </div>
+          </div>
+          <div class="floating-badge badge-1">
+            <div class="badge-dot green"></div>
+            Available for new projects
+          </div>
+          <div class="floating-badge badge-2">
+            <div class="badge-dot pink"></div>
+            all pintresty and warm as home 
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       §2 ABOUT
+  ═══════════════════════════════════════ -->
+  <section id="about">
+    <div class="blob blob-a"></div>
+    <div class="about-grid">
+      <div class="about-img-wrap reveal">
+        <div class="about-img-box">
+          <div class="about-img-inner">with love</div>
+        </div>
+        <div class="about-accent"></div>
+        <div class="about-accent2"></div>
+      </div>
+      <div class="about-text reveal" style="transition-delay:0.15s">
+        <div class="tag">About Us</div>
+        <h2>A studio built on <em>passion</em> & courage</h2>
+        <p>
+         we are dedicated deccoration studio that focusus on celebrations held at home and small venues.
+        </p>
+        <p> 
+		 from simple rituals and family gatherings to joyful birthdays and important marrige functions,we design decor that feels personal,elegant and within your budget
+        </p>
+        <div class="about-pills">
+          <span class="pill">𖹭 welcome baby</span>
+          <span class="pill">𖹭 kankotri lekhan</span>
+          <span class="pill">𖹭 vana rasam</span>
+          <span class="pill">𖹭 birthday party</span>
+          <span class="pill">𖹭 home decore</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       §3 WHAT WE DO / SERVICES
+  ═══════════════════════════════════════ -->
+  <section id="services">
+    <div class="blob blob-s"></div>
+    <div class="services-header reveal">
+      <div class="tag">What We Do</div>
+      <h2>personalized decorations <br/>for small rituals,birthdays and wedding-functions </h2>
+      <p>here where we give our best and serve</p>
+    </div>
+    <div class="services-grid">
+
+      <div class="service-card featured reveal">
+        <div class="service-icon" style="background:rgba(255,255,255,0.6)">🎨</div>
+        <h3>small rituals & family gathering </h3>
+        <p>soft,respectful decoration using flowers and simple accents for religious functions,family rituals and small gatherings at Home</p>
+        <span class="service-tag">⭑ Our Signature</span>
+      </div>
+
+      <div class="service-card reveal" style="transition-delay:0.08s">
+        <div class="service-icon" style="background:var(--blush)">🌸</div>
+        <h3>birthdays & personal celebrations </h3>
+        <p>custom birthday setups with backdrops,table decor and balloon arrangements that match the theme,age and style you want</p>
+        <span class="service-tag"></span>
+      </div>
+
+      <div class="service-card reveal" style="transition-delay:0.16s">
+        <div class="service-icon" style="background:#EDF5FF">💻</div>
+        <h3>home decor for marriage functions </h3>
+        <p>Clean, conversion-focused websites that look incredible on every device and reflect the full depth of your brand.</p>
+        <span class="service-tag"></span>
+      </div>
+
+      <div class="service-card reveal" style="transition-delay:0.24s">
+        <div class="service-icon" style="background:#FFF6E0">✍️</div>
+        <h3>social-media design</h3>
+        <p>Eye-catching posters that give your social function a polished, cohesive look.</p>
+        <span class="service-tag">→ Social Branding</span>
+      </div>
+
+      <div class="service-card reveal" style="transition-delay:0.32s">
+        <div class="service-icon" style="background:#F0FFF4">📦</div>
+        <h3>custom design service </h3>
+        <p>tell us your theme,colours and  ideas- we turn them into a unique decoration plan.</p>
+        <span class="service-tag">→ Product Design</span>
+      </div>
+
+      <div class="service-card reveal" style="transition-delay:0.40s">
+        <div class="service-icon" style="background:var(--lavender)">🖼</div>
+        <h3>home decor</h3>
+        <p>your choise of style,our experties in execution.</p>
+        <span class="service-tag"></span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       §4 WHY CHOOSE US
+  ═══════════════════════════════════════ -->
+  <section id="why">
+    <div class="blob blob-w"></div>
+    <div class="why-grid">
+      <div class="why-left reveal">
+        <div class="tag">Why Choose Us</div>
+        <h2>movement of celebration<em style="font-style:italic;color:var(--pink-deep);font-family:var(--font-ital)">matters</em>.</h2>
+        <p>We're not just decorators — we're strategic creative partners who care deeply about your functions.</p>
+        <div class="why-reasons">
+          <div class="reason">
+            <div class="reason-icon">💡</div>
+            <div class="reason-text">
+              <h4>made for you,not for everyone</h4>
+              <p>every setup is customized to your teaste,not copied  from templetes.</p>
+            </div>
+          </div>
+          <div class="reason">
+            <div class="reason-icon">⚡</div>
+            <div class="reason-text">
+              <h4>budget-friendly elegance </h4>
+              <p>we create beautiful decor without high-end prices.</p>
+            </div>
+          </div>
+          <div class="reason">
+            <div class="reason-icon">💬</div>
+            <div class="reason-text">
+              <h4>careful and clean Work</h4>
+              <p>proper setup,safe handeling of materials.</p>
+            </div>
+          </div>
+          <div class="reason">
+            <div class="reason-icon">✨</div>
+            <div class="reason-text">
+              <h4>home-focused expert</h4>
+              <p>we specialize in decorating homes and small spaces,so every detail suits your settings.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="why-right reveal" style="transition-delay:0.15s">
+        <div class="metric-card">
+          <div class="metric-num">120<span>+</span></div>
+          <div class="metric-label">Projects Completed</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-num">5<span>★</span></div>
+          <div class="metric-label">Average Client Rating</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-num">98<span>%</span></div>
+          <div class="metric-label">Client Retention Rate</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-num">6<span>+</span></div>
+          <div class="metric-label">Years in the Industry</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       §5 CONTACT / CTA
+  ═══════════════════════════════════════ -->
+  <section id="contact">
+    <div class="blob blob-c1"></div>
+    <div class="blob blob-c2"></div>
+    <div class="contact-inner">
+      <div class="contact-left reveal">
+        <div class="tag">Let's Work Together</div>
+        <h2>Ready to make something <em>beautiful</em>?</h2>
+        <p>
+          Tell us about your project and let's create something you'll fall in love with. We'd love to hear from you — no project is too small or too dreamy.
+        </p>
+        <div class="contact-info">
+          <div class="contact-item">
+            <div class="contact-item-icon">📧</div>shree_event_manegment
+            
+          </div>
+          <div class="contact-item">
+            <div class="contact-item-icon">📞</div>
+            +91 9173866999
+          </div>
+          <div class="contact-item">
+            <div class="contact-item-icon">📍</div>
+            Remote in ahemedabad,gandhinagar,kheda,jetalpur,bareja,aslali,gamdi,chosar,hathijan etc· Based in ahmedabad
+          </div>
+          <div class="contact-item">
+            <div class="contact-item-icon">🕐</div>
+            Mon–Fri, 9am – 6pm 
+          </div>
+        </div>
+      </div>
+      <div class="reveal" style="transition-delay:0.15s">
+        <div class="contact-form" id="contactForm">
+        <div id="form-success">
+<form class="contact-form" id="form">
+
+  <div class="form-row">
+    <div class="form-group">
+      <label>First Name</label>
+      <input type="text" name="first_name" id="fname"
+             placeholder="Jane" required />
+    </div>
+
+    <div class="form-group">
+      <label>Last Name</label>
+      <input type="text" name="last_name" id="lname"
+             placeholder="Doe" />
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Email Address</label>
+    <input type="email" name="email" id="email"
+           placeholder="jane@yourcompany.com" required />
+  </div>
+
+  <div class="form-group">
+    <label>Service Interested In</label>
+    <select name="subject" id="service" required>
+      <option value="">Select a service...</option>
+      <option>small rituals & family gathering</option>
+      <option>birthday & personal celebration</option>
+      <option>home decor for marriage functions</option>
+      <option>social media design</option>
+      <option>custom design service</option>
+      <option>home decor</option>
+      <option>Full Brand Package</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Tell us about your project</label>
+    <textarea name="message" id="message"
+              placeholder="I'm looking for..." required></textarea>
+  </div>
+
+  <button type="submit" class="btn-primary"
+          style="width:100%;justify-content:center;text-align:center;padding:15px;">
+    Send My Enquiry ✦
+  </button>
+
+</form>
+
+          <span class="tick">🌸</span>
+          <strong>Message sent!</strong><br/>
+          Thank you for reaching out. We'll be in touch within 24 hours.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════ -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <span class="logo">shree decorators<span>.</span></span>
+        <p>ready to make your next function home truely special?</p>
+      </div>
+      <div class="footer-col">
+        <h4>Services</h4>
+        <ul>
+          <li><a href="#services">small rituals & family functions</a></li>
+          <li><a href="#services">birthday & personal celebrations</a></li>
+          <li><a href="#services">home decor for marrige functions</a></li>
+          <li><a href="#services">Social Media design</a></li>
+          <li><a href="#services">custom design service </a></li>
+          <li><a href="#services">home decor </a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <div class="contact-line">📧 gyatrijoshi081081@gmail.com</div>
+        <div class="contact-line">📞 +91 9173866999</div>
+        <div class="contact-line">📍 Remote ahmedabad and near city </div>
+        <div class="contact-line">🕐 Mon–Fri, 9am–6pm </div>
+      </div>
+      <div class="footer-col">
+        <h4>Follow Us</h4>
+        <p style="font-size:0.83rem;margin-bottom:16px;font-weight:300">Stay inspired — follow our creative journey.</p>
+        <div class="social-row">
+          <a href="#" class="social-btn" title="Instagram">📸</a>
+          <a href="#" class="social-btn" title="Pinterest">📌</a>
+          <a href="#" class="social-btn" title="LinkedIn">💼</a>
+          <a href="#" class="social-btn" title="Dribbble">🏀</a>
+        </div>
+        <p style="font-size:0.78rem;margin-top:16px;color:rgba(255,255,255,0.35)">@shree_decore</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 shree decorators All rights reserved.</span>
+      <span>Made by rutvi joshi 🌸 · <a href="#">Privacy Policy</a> · <a href="#">Terms</a></span>
+    </div>
+  </footer>
+
+  <!-- ─── JS ─── -->
+  <script>
+    /* Custom Cursor */
+    const cursor = document.getElementById('cursor');
+    const trail  = document.getElementById('cursor-trail');
+    if (cursor && trail) {
+      document.addEventListener('mousemove', e => {
+        cursor.style.left = e.clientX + 'px';
+        cursor.style.top  = e.clientY + 'px';
+        setTimeout(() => {
+          trail.style.left = e.clientX + 'px';
+          trail.style.top  = e.clientY + 'px';
+        }, 80);
+      });
+      document.querySelectorAll('a, button, .service-card, .metric-card').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          cursor.style.transform = 'translate(-50%,-50%) scale(2)';
+          cursor.style.background = 'var(--lav-deep)';
+        });
+        el.addEventListener('mouseleave', () => {
+          cursor.style.transform = 'translate(-50%,-50%) scale(1)';
+          cursor.style.background = 'var(--pink-deep)';
+        });
+      });
+    }
+
+    /* Navbar scroll */
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    /* Mobile nav */
+    function toggleNav() {
+      document.getElementById('navLinks').classList.toggle('open');
+    }
+    document.querySelectorAll('.nav-links a').forEach(a => {
+      a.addEventListener('click', () => {
+        document.getElementById('navLinks').classList.remove('open');
+      });
+    });
+
+    /* Scroll reveal */
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    /* Staggered children within grids */
+    document.querySelectorAll('.services-grid .service-card, .why-right .metric-card').forEach((card, i) => {
+      card.style.transitionDelay = (i * 0.08) + 's';
+    });
+
+    /* Form submit */
+    function submitForm() {
+      const f = document.getElementById('fname').value;
+      const e = document.getElementById('email').value;
+      if (!f || !e) {
+        alert('Please fill in at least your name and email! 🌸');
+        return;
+      }
+      document.getElementById('contactForm').style.display = 'none';
+      document.getElementById('form-success').style.display = 'block';
+    }
+
+    /* Smooth anchor for all nav links */
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    /* Counter animation */
+    function animateCounter(el, target, suffix) {
+      let start = 0;
+      const step = target / 50;
+      const timer = setInterval(() => {
+        start += step;
+        if (start >= target) { el.innerHTML = target + suffix; clearInterval(timer); return; }
+        el.innerHTML = Math.floor(start) + suffix;
+      }, 30);
+    }
+    const statsObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const nums = entry.target.querySelectorAll('.metric-num');
+          const targets = [120, 5, 98, 6];
+          const suffixes = ['+', '★', '%', '+'];
+          nums.forEach((n, i) => animateCounter(n, targets[i], `<span>${suffixes[i]}</span>`));
+          statsObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    const whyRight = document.querySelector('.why-right');
+    if (whyRight) statsObserver.observe(whyRight);
+  </script>
+</body>
+</html>
